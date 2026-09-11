@@ -2,8 +2,8 @@ name: Update Kindle Dashboard
 
 on:
   schedule:
-    # 每日自動執行兩次 (UTC 時間 0 點同 12 點，即香港時間朝早 8 點同夜晚 8 點)
-    - cron: '0 0,12 * * *'
+    # 調整為香港時間 00:00 (16:00 UTC) 及 12:00 (04:00 UTC) 自動執行
+    - cron: '0 16,4 * * *'
   workflow_dispatch:
 
 jobs:
