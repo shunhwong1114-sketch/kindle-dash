@@ -1,57 +1,79 @@
 import calendar
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from PIL import Image, ImageDraw, ImageFont
 import requests
+import os
 
 # 1. 建立 1024x758 橫向畫布
 width, height = 1024, 758
 image = Image.new("RGB", (width, height), "white")
 draw = ImageDraw.Draw(image)
 
-# 嘗試載入字型
-try:
-    font_time = ImageFont.truetype("arial.ttf", 64)
-    font_date = ImageFont.truetype("arial.ttf", 24)
-    font_section = ImageFont.truetype("arial.ttf", 16)
-    font_bold = ImageFont.truetype("arial.ttf", 18)
-    font_regular = ImageFont.truetype("arial.ttf", 16)
-    font_small = ImageFont.truetype("arial.ttf", 14)
-except:
-    font_time = font_date = font_section = font_bold = font_regular = font_small = ImageFont.load_default()
+# 強制尋找 Linux (GitHub Actions) 或 Windows 的可用字型
+def get_font(size, bold=False):
+    # 優先嘗試 Linux 常用高品質字型
+    linux_fonts = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    ]
+    for path in linux_fonts:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except:
+                continue
+    # Windows 備用
+    windows_fonts = ["arialbd.ttf" if bold else "arial.ttf"]
+    for path in windows_fonts:
+        try:
+            return ImageFont.truetype(path, size)
+        except:
+            continue
+    return ImageFont.load_default()
 
-# 取得當前真實時間、年份、月份
-now = datetime.now()
+# 定義大字與標準字型
+font_time = get_font(72, bold=True)
+font_weather = get_font(72, bold=True)
+font_date = get_font(24, bold=False)
+font_section = get_font(16, bold=True)
+font_bold = get_font(18, bold=True)
+font_regular = get_font(16, bold=False)
+font_small = get_font(14, bold=False)
+
+# 強制設定為香港時間 (HKT, UTC+8)
+hkt_tz = timezone(timedelta(hours=8))
+now = datetime.now(hkt_tz)
 current_year = now.year
 current_month = now.month
 current_day = now.day
 
-# ==================== 左側區域 (時鐘與天氣) ====================
+# ==================== 左側區域 (大字時鐘與天氣) ====================
 current_time_str = now.strftime("%I:%M %p")
 current_date_str = now.strftime("%Y-%m-%d (%a)")
 
-draw.text((40, 35), current_time_str, fill="black", font=font_time)
-draw.text((40, 115), current_date_str, fill="black", font=font_date)
+draw.text((40, 30), current_time_str, fill="black", font=font_time)
+draw.text((40, 125), current_date_str, fill="black", font=font_date)
 
 # 電池標示框
-draw.rectangle([430, 45, 475, 75], outline="black", width=2)
-draw.rectangle([475, 53, 479, 67], fill="black")
-draw.text((440, 50), "98%", fill="black", font=font_small)
+draw.rectangle([420, 50, 465, 80], outline="black", width=2)
+draw.rectangle([465, 58, 469, 72], fill="black")
+draw.text((430, 55), "98%", fill="black", font=font_small)
 
-draw.line([40, 160, 460, 160], fill="black", width=2)
+draw.line([40, 170, 450, 170], fill="black", width=2)
 
 # 即時天氣擷取 (HKO Current Weather)
-draw.text((40, 180), "HONG KONG WEATHER (HKO)", fill="black", font=font_section)
+draw.text((40, 190), "HONG KONG WEATHER (HKO)", fill="black", font=font_section)
 
-draw.rectangle([40, 205, 460, 320], outline="black", width=2)
-draw.text((55, 218), "29°C", fill="black", font=font_time)
-draw.text((375, 222), "Humidity", fill="black", font=font_small)
-draw.text((385, 246), "82%", fill="black", font=font_bold)
-draw.text((55, 290), "Partly Cloudy / Humid", fill="black", font=font_regular)
+draw.rectangle([40, 215, 450, 335], outline="black", width=2)
+draw.text((55, 235), "29°C", fill="black", font=font_weather)
+draw.text((365, 238), "Humidity", fill="black", font=font_small)
+draw.text((375, 262), "82%", fill="black", font=font_bold)
+draw.text((55, 305), "Partly Cloudy / Humid", fill="black", font=font_regular)
 
-draw.line([40, 345, 460, 345], fill="black", width=1)
+draw.line([40, 355, 450, 355], fill="black", width=1)
 
 # 3-Day Weather Forecast
-draw.text((40, 365), "3-DAY WEATHER FORECAST", fill="black", font=font_section)
+draw.text((40, 375), "3-DAY WEATHER FORECAST", fill="black", font=font_section)
 
 weather_boxes = [
     ("Sat (Sep 12)", "25-31°C", "Mainly cloudy"),
@@ -89,23 +111,23 @@ try:
 except:
     pass
 
-box_y = 395
+box_y = 405
 for d_label, t_label, desc in weather_boxes:
-    draw.rectangle([40, box_y, 460, box_y + 50], outline="black", width=2)
+    draw.rectangle([40, box_y, 450, box_y + 50], outline="black", width=2)
     draw.text((55, box_y + 14), f"{d_label}: {t_label}", fill="black", font=font_bold)
-    draw.text((335, box_y + 14), desc, fill="black", font=font_regular)
+    draw.text((325, box_y + 14), desc, fill="black", font=font_regular)
     box_y += 60
 
-# ==================== 右側區域 (動態日曆 + 香港法定假期) ====================
-draw.line([500, 0, 500, 758], fill="black", width=3)
+# ==================== 右側區域 (動態月曆 + 香港公眾假期) ====================
+draw.line([490, 0, 490, 758], fill="black", width=3)
 
 month_name = calendar.month_name[current_month].upper()
-draw.text((530, 35), f"CALENDAR — {month_name}", fill="black", font=font_section)
-draw.text((530, 60), str(current_year), fill="black", font=font_section)
-draw.text((750, 35), "HK Sun Start & Holiday (*)", fill="black", font=font_small)
+draw.text((520, 35), f"CALENDAR - {month_name}", fill="black", font=font_section)
+draw.text((520, 60), str(current_year), fill="black", font=font_section)
+draw.text((740, 35), "HK Sun Start & Holiday (*)", fill="black", font=font_small)
 
 days_of_week = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-cal_x, cal_y = 530, 120
+cal_x, cal_y = 520, 120
 cell_w, cell_h = 60, 55
 
 for i, day in enumerate(days_of_week):
@@ -114,11 +136,8 @@ for i, day in enumerate(days_of_week):
 
 draw.line([cal_x, cal_y + 25, cal_x + 7 * cell_w, cal_y + 25], fill="black", width=2)
 
-# 香港公眾假期對應表 (格式: {(年, 月): [日子清單]})
-# 例如 2026年9月 包含 26號 (中秋節翌日)
 holidays_dict = {
     (2026, 9): [26],
-    # 你日後可以隨時加其他月份，例如 (2026, 10): [1, 25] 等
 }
 current_month_holidays = holidays_dict.get((current_year, current_month), [])
 
@@ -138,11 +157,9 @@ while cal_day <= total_days:
     
     day_str = str(cal_day)
     
-    # 標示今日 (反白黑底白字)
     if cal_day == current_day:
         draw.rectangle([x+2, y+2, x + cell_w - 6, y + cell_h - 6], fill="black", outline="black")
         draw.text((x + 18, y + 16), day_str, fill="white", font=font_bold)
-    # 標示香港公眾假期 (*hol)
     elif cal_day in current_month_holidays:
         draw.text((x + 15, y + 10), day_str, fill="red" if is_sunday else "black", font=font_bold)
         draw.text((x + 12, y + 32), "*hol", fill="black", font=font_small)
@@ -156,10 +173,9 @@ while cal_day <= total_days:
     cal_day += 1
 
 # 右下角備註
-draw.line([530, 680, 974, 680], fill="gray", width=1)
-draw.text((530, 700), f"Updated: {now.strftime('%Y-%m-%d %H:%M')}", fill="gray", font=font_small)
-draw.text((740, 700), "HKO Weather Forecast Dashboard", fill="gray", font=font_small)
+draw.line([520, 680, 964, 680], fill="gray", width=1)
+draw.text((520, 700), f"Updated: {now.strftime('%Y-%m-%d %H:%M')}", fill="gray", font=font_small)
+draw.text((730, 700), "HKO Weather Forecast Dashboard", fill="gray", font=font_small)
 
-# 儲存
 image.save("dashboard.png")
-print("Dynamic dashboard with HK public holidays generated successfully!")
+print("Dashboard updated with correct fonts and large style!")
